@@ -22,16 +22,18 @@ def chime(timeout, iface=None, msg = ''):
 		s.sendto(m, ('<broadcast>', PORT))
 		time.sleep(timeout)
 
-class ChimeDaemon(object,Daemon):
-	timeout = 2
-	msg = ''
-	def run(self):
-		chime(self.timeout, self.msg)
+class ChimeDaemon(Daemon):
+	def __init__(self, pid_path, timeout=2, msg='', iface=None):
+		Daemon.__init__(self, pid_path)
+		self.timeout = timeout
+		self.msg = msg
+		self.iface = iface
 
-def daemon(cmd, timeout, msg):
-	daemon = ChimeDaemon('/tmp/chime-daemon.pid')
-	daemon.timeout = timeout
-	daemon.msg = msg
+	def run(self):
+		chime(timeout=self.timeout, iface=self.iface, msg=self.msg)
+
+def daemon(cmd, timeout, msg, iface):
+	daemon = ChimeDaemon('/tmp/chime-daemon.pid', timeout=timeout, iface=iface, msg=msg)
 	print "daemon made"
 	if cmd == 'start':
 		print "starting"
@@ -60,7 +62,7 @@ def search(timeout, iface=None, console=True):
 	while 1:
 		try:
 			if select.select([s], [], [], 1)[0]:
-				msg, addr = s.recvfrom(256)
+				msg, addr = s.recvfrom(5*1024)
 				if MSG in msg:
 					msg = msg.split(MSG)
 					if len(msg) > 1 and len(msg[1]) > 0:
@@ -100,7 +102,7 @@ def main():
 	if args.search:
 		search(timeout, iface)
 	elif args.daemon:
-		if not daemon(args.daemon[0], timeout, msg):
+		if not daemon(args.daemon[0], timeout, msg, iface):
 			print "error: daemon options are [start|stop|restart]"
 			parser.print_help()
 	elif args.chime:
